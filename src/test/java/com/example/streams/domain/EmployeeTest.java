@@ -1,12 +1,12 @@
 package com.example.streams.domain;
 
 import com.example.streams.repository.EmployeeRepository;
+import org.junit.Before;
 import org.junit.Test;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.hamcrest.Matchers.*;
@@ -30,32 +30,37 @@ import static org.junit.Assert.*;
  */
 
 public class EmployeeTest {
-
     private EmployeeRepository employeeRepository;
 
-    private static Employee[] arrayOfEmps = {
-            new Employee(1L, "Jeff Bezos", 100_000.0),
-            new Employee(2L, "Bill Gates", 200_000.0),
-            new Employee(3L, "Mark Zuckerberg", 300_000.0)
-    };
+    private Employee[] empArray;
 
-    private static List<Employee> empList = Arrays.asList(arrayOfEmps);
+    private List<Employee> empList;
+
+    @Before
+    public void setUp() {
+        this.empArray = new Employee[]{
+                new Employee(1L, "Jeff Bezos", 100_000.0),
+                new Employee(2L, "Bill Gates", 200_000.0),
+                new Employee(3L, "Mark Zuckerberg", 300_000.0)
+        };
+        this.empList = Arrays.asList(this.empArray);
+    }
 
     @Test
     public void mustResolveStreamCreation() {
         //act
         // Let’s first obtain a stream from an existing array:
-        Stream<Employee> employeeStream1 = Stream.of(arrayOfEmps);
+        Stream<Employee> employeeStream1 = Stream.of(this.empArray);
         // We can also obtain a stream from an existing list:
-        Stream<Employee> employeeStream2 = empList.stream();
+        Stream<Employee> employeeStream2 = this.empList.stream();
         // And we can create a stream from individual objects using Stream.of():
-        Stream<Employee> employeeStream3 = Stream.of(arrayOfEmps[0], arrayOfEmps[1], arrayOfEmps[2]);
+        Stream<Employee> employeeStream3 = Stream.of(this.empArray[0], this.empArray[1], this.empArray[2]);
         // Or simply using Stream.builder():
         Stream.Builder<Employee> empStreamBuilder = Stream.builder();
 
-        empStreamBuilder.accept(arrayOfEmps[0]);
-        empStreamBuilder.accept(arrayOfEmps[1]);
-        empStreamBuilder.accept(arrayOfEmps[2]);
+        empStreamBuilder.accept(this.empArray[0]);
+        empStreamBuilder.accept(this.empArray[1]);
+        empStreamBuilder.accept(this.empArray[2]);
 
         Stream<Employee> employeeStream4 = empStreamBuilder.build();
 
@@ -79,12 +84,12 @@ public class EmployeeTest {
     @Test
     public void whenIncrementSalaryForEachEmployee_thenApplyNewSalary() {
         // act
-        // empList.stream().forEach(e -> e.salaryIncrement(10.0));
+        // this.empList.stream().forEach(e -> e.salaryIncrement(10.0));
         // The forEach is so common that is has been introduced directly in List, Iterable, Map etc:
-        empList.forEach(e -> e.salaryIncrement(10.0));
+        this.empList.forEach(e -> e.salaryIncrement(10.0));
 
         // assert
-        assertThat(empList, contains(
+        assertThat(this.empList, contains(
                 hasProperty("salary", equalTo(110_000.0)),
                 hasProperty("salary", equalTo(220_000.0)),
                 hasProperty("salary", equalTo(330_000.0))
@@ -124,9 +129,9 @@ public class EmployeeTest {
      */
     @Test
     public void whenCollectStreamToList_thenGetList() {
-        List<Employee> employees = empList.stream().collect(Collectors.toList());
+        List<Employee> employees = this.empList.stream().collect(Collectors.toList());
 
-        assertEquals(empList, employees);
+        assertEquals(this.empList, employees);
     }
 
     /**
@@ -169,7 +174,7 @@ public class EmployeeTest {
         this.employeeRepository = new EmployeeRepository();
 
         // act
-        Employee result = empList
+        Employee result = this.empList
                 .stream()
                 .map(Employee::getId)
                 .map(this.employeeRepository::findById)
@@ -179,8 +184,19 @@ public class EmployeeTest {
 
         // assert
         assertNotNull(result);
-        assertEquals(result.getFullName(), "Bill Gates");
+        assertEquals("Bill Gates", result.getFullName());
     }
+
+    // Lazy Evaluation
+    // One of the most important characteristics of streams is that they allow for significant optimizations through lazy evaluations.
+    // Computation on the source data is only performed when the terminal operation is initiated, and source elements are consumed only as needed.
+    // All intermediate operations are lazy, so they’re not executed until a result of a processing is actually needed.
+    // For example, consider the findFirst() example above {@link whenFindFirst_thenGetFirstEmployeeInStream}. How many times is the map() operation performed here? 4 times, since the input array contains 4 elements?
+    // Stream performs the map and two filter operations, one element at a time.
+    // It first performs all the operations on id 1. Since the salary of id 1 is not greater than 100000, the processing moves on to the next element.
+    // Id 2 satisfies both of the filter predicates and hence the stream evaluates the terminal operation findFirst() and returns the result.
+    // No operations are performed on id 3 and 4.
+    // Processing streams lazily allows avoiding examining all the data when that’s not necessary. This behavior becomes even more important when the input stream is infinite and not just very large.
 
     /**
      * toArray
@@ -191,10 +207,10 @@ public class EmployeeTest {
     @Test
     public void whenStreamToArray_thenGetArray() {
         // arrange
-        Employee[] employees = empList.stream().toArray(Employee[]::new);
+        Employee[] employees = this.empList.stream().toArray(Employee[]::new);
 
         // assert
-        assertThat(empList.toArray(), equalTo(employees));
+        assertThat(this.empList.toArray(), equalTo(employees));
     }
 
     /**
@@ -232,18 +248,22 @@ public class EmployeeTest {
      * peek
      * We saw forEach() earlier in this section, which is a terminal operation. However, sometimes we need to perform multiple operations on each element of the stream before any terminal operation is applied.
      * <p>
-     * peek() can be useful in situations like this. Simply put, it performs the specified operation on each element of the stream and returns a new stream which can be used further. peek() is an intermediate operation:
+     * peek() can be useful in situations like this. Simply put, it performs the specified operation on each element of the stream and returns a new stream which can be used further. peek() is an intermediate operation.
+     * <p>
+     * Here, the first peek() is used to increment the salary of each employee. The second peek() is used to print the employees. Finally, collect() is used as the terminal operation.
+     * <p>
+     * Note: Runs this alone as the empList is static.
      */
     @Test
     public void whenIncrementSalaryUsingPeek_thenApplyNewSalary() {
         // act
-        empList.stream()
+        List<Employee> result = this.empList.stream()
                 .peek(employee -> employee.salaryIncrement(15.0))
                 .peek(EmployeeTest::printNewSalary)
                 .collect(Collectors.toList());
 
         // assert
-        assertThat(empList, contains(
+        assertThat(result, contains(
                 hasProperty("salary", equalTo(115_000.0)),
                 hasProperty("salary", equalTo(230_000.0)),
                 hasProperty("salary", equalTo(345_000.0))
@@ -254,4 +274,207 @@ public class EmployeeTest {
         System.out.println(employee.getFullName() + "' new salary: " + employee.getSalary());
     }
 
+    // Method Types and Pipelines
+    // As we’ve been discussing, stream operations are divided into intermediate and terminal operations.
+    // Intermediate operations such as filter() return a new stream on which further processing can be done. Terminal operations, such as forEach(), mark the stream as consumed, after which point it can no longer be used further.
+    // A stream pipeline consists of a stream source, followed by zero or more intermediate operations, and a terminal operation.
+
+    /**
+     * Here’s a sample stream pipeline, where empList is the source, filter() is the intermediate operation and count is the terminal operation.
+     */
+    @Test
+    public void whenStreamCount_thenGetElementCount() {
+        // act
+        long empCount = this.empList.stream()
+                .filter(employee -> employee.getSalary() > 200_000)
+                .count();
+
+        // assert
+        assertEquals(1L, empCount);
+    }
+
+
+    /**
+     * Some operations are deemed short-circuiting operations. Short-circuiting operations allow computations on infinite streams to complete in finite time.
+     * <p>
+     * Here, we use short-circuiting operations skip() to skip first 2 elements, and limit() to limit to 2 elements from the infinite stream generated using iterate().
+     */
+    @Test
+    public void whenLimitInfiniteStream_thenGetFiniteElements() {
+        // arrange
+        Stream<Integer> infiniteStream = Stream.iterate(3, i -> i * 3); // result {3, 9, 27, 81, 243, 729, 2187}
+
+        // act
+        List<Integer> result = infiniteStream
+                .skip(2) // Will skip the first elements until get the n(2) -> 3, 9.
+                .limit(4) // Will take into consideration the next n(4) (skipping 3 and 9) -> 27, 81, 243, 729.
+                .collect(Collectors.toList());
+
+        // assert
+        assertEquals(Arrays.asList(27, 81, 243, 729), result);
+    }
+
+    //Comparison Based Stream Operations
+
+    /**
+     * Let’s start with the sorted() operation – this sorts the stream elements based on the comparator passed we pass into it.
+     * For example, we can sort Employees based on their names:
+     */
+    @Test
+    public void whenSortStream_thenGetSortedStream() {
+        // act
+        List<Employee> result = empList.stream()
+                //.sorted((e1, e2) -> e1.getFullName().compareTo(e2.getFullName())) // This is also a valid way
+                .sorted(Comparator.comparing(Employee::getFullName))
+                .collect(Collectors.toList());
+
+        // Note that short-circuiting will not be applied for sorted().
+        // This means, in the example above, even if we had used findFirst() after the sorted(), the sorting of all the elements is done before applying the findFirst(). This happens because the operation cannot know what the first element is until the entire stream is sorted.
+
+        // assert
+        assertEquals("Bill Gates", result.get(0).getFullName());
+        assertEquals("Jeff Bezos", result.get(1).getFullName());
+        assertEquals("Mark Zuckerberg", result.get(2).getFullName());
+    }
+
+    /**
+     * As the name suggests, min() and max() return the minimum and maximum element in the stream respectively, based on a comparator. They return an Optional since a result may or may not exist (due to, say, filtering).
+     */
+    @Test
+    public void whenFindMin_thenGetMinElementFromStream_Optional() {
+        // arrange
+        Stream<Integer> numbers = Stream.iterate(2, i -> i * 2)
+                .limit(5);
+
+        // act
+        Optional<Integer> min = numbers.min(Comparator.comparingInt(Integer::intValue));
+
+        // assert
+        assertTrue(min.isPresent());
+        assertEquals(new Integer(2), min.get());
+
+    }
+
+    @Test
+    public void whenFindMin_thenGetMinElementFromStream() {
+        // act
+        Employee firstEmp = empList.stream()
+                .min((e1, e2) -> e1.getId().intValue() - e2.getId().intValue())
+                .orElseThrow(NoSuchElementException::new);
+
+        // assert
+        assertEquals(new Long(1), firstEmp.getId());
+    }
+
+    /**
+     * We can also avoid defining the comparison logic by using Comparator.comparing():
+     */
+
+    @Test
+    public void whenFindMax_thenGetMaxElementFromStream() {
+        // act
+        Employee maxSalEmp = empList.stream()
+                .max(Comparator.comparing(Employee::getSalary))
+                .orElseThrow(NoSuchElementException::new);
+
+        // assert
+        assertEquals(300_000.0, maxSalEmp.getSalary(), 0.0);
+    }
+
+    /**
+     * distinct() does not take any argument and returns the distinct elements in the stream, eliminating duplicates. It uses the equals() method of the elements to decide whether two elements are equal or not.
+     */
+
+    @Test
+    public void whenApplyDistinct_thenRemoveDuplicatesFromStream() {
+        // arrange
+        List<Integer> intList = Arrays.asList(2, 3, 7, 11, 2, 3, 3, 11, 13);
+
+        // act
+        List<Integer> result = intList.stream()
+                .distinct()
+                .collect(Collectors.toList());
+
+        // assert
+        assertEquals(Arrays.asList(2, 3, 7, 11, 13), result);
+
+    }
+
+    /**
+     * allMatch, anyMatch, and noneMatch
+     * These operations all take a predicate and return a boolean. Short-circuiting is applied and processing is stopped as soon as the answer is determined.
+     */
+    @Test
+    public void whenApplyMatch_thenReturnBoolean() {
+        // arrange
+        List<Integer> intList = Arrays.asList(2, 4, 5, 6, 8);
+
+        // act
+        boolean allEven = intList.stream().allMatch(i -> i % 2 == 0);
+        // allMatch() checks if the predicate is true for all the elements in the stream. Here, it returns false as soon as it encounters 5, which is not divisible by 2.
+        boolean oneEven = intList.stream().anyMatch(i -> i % 2 == 0);
+        // anyMatch() checks if the predicate is true for any one element in the stream. Here, again short-circuiting is applied and true is returned immediately after the first element.
+        boolean noneMultipleOfThree = intList.stream().noneMatch(i -> i % 3 == 0);
+        // noneMatch() checks if there are no elements matching the predicate. Here, it simply returns false as soon as it encounters 6, which is divisible by 3.
+
+        // assert
+        assertFalse(allEven);
+        assertTrue(oneEven);
+        assertFalse(noneMultipleOfThree);
+    }
+
+    // Stream Specializations
+    // From what we discussed so far, Stream is a stream of object references. However, there are also the IntStream, LongStream, and DoubleStream – which are primitive specializations for int, long and double respectively. These are quite convenient when dealing with a lot of numerical primitives.
+    // These specialized streams do not extend Stream but extend BaseStream on top of which Stream is also built.
+    // As a consequence, not all operations supported by Stream are present in these stream implementations. For example, the standard min() and max() take a comparator, whereas the specialized streams do not.
+
+    /**
+     * Creation
+     * The most common way of creating an IntStream is to call mapToInt() on an existing stream.
+     * <p>
+     * Here, we start with a Stream<Employee> and get an IntStream by supplying the Employee::getId to mapToInt. Finally, we call max() which returns the highest integer.
+     */
+    @Test
+    public void whenFindMaxOnIntStream_thenGetMaxInteger() {
+        // act
+        long maxId = this.empList.stream()
+                .mapToLong(Employee::getId)
+                .max()
+                .orElseThrow(NoSuchElementException::new);
+
+        // assert
+        assertEquals(3L, maxId);
+    }
+
+    @Test
+    public void differentWaysToGetStreamInt() {
+        // We can also use IntStream.of() for creating the IntStream:
+        IntStream intStream = IntStream.of(1, 2, 3);
+        OptionalInt optionalIntMin = intStream.min();
+        // assert
+        assertTrue(optionalIntMin.isPresent());
+        assertEquals(1, optionalIntMin.getAsInt());
+
+        // Or, IntStream.range():
+        IntStream rangeStream = IntStream.range(10, 20); // Which creates IntStream of numbers 10 to 19.
+        OptionalInt optionalIntMax = rangeStream.max();
+        // assert
+        assertTrue(optionalIntMax.isPresent());
+        assertEquals(19, optionalIntMax.getAsInt());
+
+        // One important distinction to note before we move on to the next topic:
+        // Bellow returns a Stream<Integer> and not IntStream.
+        Stream<Integer> streamInt = Stream.of(1, 2, 3);
+        Optional<Integer> optionalIntegerMin = streamInt.min(Comparator.comparingInt(Integer::intValue));
+        // assert
+        assertTrue(optionalIntegerMin.isPresent());
+        assertEquals(new Integer(1), optionalIntegerMin.get());
+
+        //Similarly, using map() instead of mapToInt() returns a Stream<Integer> and not an IntStream.:
+        Stream<Long> streamLong = this.empList.stream().map(Employee::getId);
+        Optional<Long> optionalIntegerMax = streamLong.max(Comparator.comparingLong(Long::longValue));
+        // assert
+        assertTrue(optionalIntegerMax.isPresent());
+        assertEquals(new Long(3), optionalIntegerMax.get());
+    }
 }
